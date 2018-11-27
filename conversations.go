@@ -71,6 +71,7 @@ func (h *HelpScout) NewConversationWithThread(threadType string, subject string,
 		Customer: customer,
 		Content:  content,
 		Imported: true,
+		Created:  created,
 	}})
 	if err != nil {
 		return
