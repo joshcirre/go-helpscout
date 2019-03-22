@@ -51,6 +51,7 @@ type reqConversation struct {
 	Threads   []NewThread `json:"threads"`
 	Imported  bool        `json:"imported"`
 	Tags      []string    `json:"tags"`
+	Closed    time.Time   `json:"closedAt"`
 }
 
 // NewConversationWithMessage creates a new message thread from the
@@ -103,6 +104,7 @@ func (h *HelpScout) NewConversation(subject string, customer Customer, created t
 		Threads:   threads,
 		Imported:  true,
 		Tags:      tags,
+		Closed:    created,
 	}, nil)
 	if err != nil {
 		return
