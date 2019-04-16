@@ -76,24 +76,24 @@ type reqConversation struct {
 
 // NewConversationWithMessage creates a new message thread from the
 // given customer in the current mailbox
-func (h *HelpScout) NewConversationWithMessage(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool) (conversationID int, threadID int, err error) {
-	return h.NewConversationWithThread("customer", subject, customer, created, tags, content, searchForThreadID)
+func (h *HelpScout) NewConversationWithMessage(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, err error) {
+	return h.NewConversationWithThread("customer", subject, customer, created, tags, content, searchForThreadID, closed)
 }
 
 // NewConversationWithReply creates a reply thread to the given customer
-func (h *HelpScout) NewConversationWithReply(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool) (conversationID int, threadID int, err error) {
-	return h.NewConversationWithThread("reply", subject, customer, created, tags, content, searchForThreadID)
+func (h *HelpScout) NewConversationWithReply(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, err error) {
+	return h.NewConversationWithThread("reply", subject, customer, created, tags, content, searchForThreadID, closed)
 }
 
 // NewConversationWithThread creates a conversation and a thread with the given customer information
-func (h *HelpScout) NewConversationWithThread(threadType string, subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool) (conversationID int, threadID int, err error) {
+func (h *HelpScout) NewConversationWithThread(threadType string, subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, err error) {
 	conversationID, err = h.NewConversation(subject, customer, created, tags, []NewThread{{
 		Type:     threadType,
 		Customer: customer,
 		Content:  content,
 		Imported: true,
 		Created:  Time(created.UTC()),
-	}})
+	}}, closed)
 	if err != nil {
 		return
 	}
@@ -109,9 +109,16 @@ func (h *HelpScout) NewConversationWithThread(threadType string, subject string,
 }
 
 // NewConversation creates a new conversation with the given customer and returns the new Conversation ID
-func (h *HelpScout) NewConversation(subject string, customer Customer, created time.Time, tags []string, threads []NewThread) (conversationID int, err error) {
+func (h *HelpScout) NewConversation(subject string, customer Customer, created time.Time, tags []string, threads []NewThread, closed bool) (conversationID int, err error) {
 	if len(subject) == 0 {
 		return 0, fmt.Errorf("subjects cannot be blank")
+	}
+
+	var status string
+	if closed {
+		status = "closed"
+	} else {
+		status = "active"
 	}
 
 	customer.Created = Time(created)
@@ -120,7 +127,7 @@ func (h *HelpScout) NewConversation(subject string, customer Customer, created t
 		Customer:  customer,
 		MailboxID: h.MailboxID,
 		Type:      "email",
-		Status:    "closed",
+		Status:    status,
 		Created:   Time(created.UTC()),
 		Threads:   threads,
 		Imported:  true,
