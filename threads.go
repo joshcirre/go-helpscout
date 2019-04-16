@@ -9,11 +9,11 @@ import (
 // NewThread can be though of as a message;
 // Conversations are named literally, and conversations contain threads
 type NewThread struct {
-	Type     string    `json:"type"`
-	Customer Customer  `json:"customer"`
-	Content  string    `json:"text"`
-	Imported bool      `json:"imported"`
-	Created  time.Time `json:"createdAt"`
+	Type     string   `json:"type"`
+	Customer Customer `json:"customer"`
+	Content  string   `json:"text"`
+	Imported bool     `json:"imported"`
+	Created  Time     `json:"createdAt"`
 }
 
 // Thread is an already existing thread

@@ -33,7 +33,7 @@ var ShowPostData = true
 // ShowResponse being set to false will hide any Help Scout responses in verbose mode
 var ShowResponse = true
 
-// RateLimitPercent is the percent (as a decimal) of how much of the available rate limit to use. E.g., rate limit is 400/minute; if .75 is given, then 300/minute will be this instances effective rate limit
+// RateLimitPercent is the percent (as a decimal) of how much of the available rate limit to use. E.g., rate limit is 400/minute; if .75 is given, then 300/minute will be this instance's effective rate limit
 var RateLimitPercent float64 = 1
 
 // CurrentRateMinute is the current count of API requests in the last minute

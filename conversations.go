@@ -1,6 +1,7 @@
 package helpscout
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -22,23 +23,42 @@ const (
 	reqGenderUnknown = "unknown"
 )
 
+// Time is the same as time.Time, but marshals with time.RFC3339
+type Time time.Time
+
+// MarshalJSON marshalls Time with time.RFC3339
+func (t Time) MarshalJSON() ([]byte, error) {
+	if y := time.Time(t).Year(); y < 0 || y >= 10000 {
+		// RFC 3339 is clear that years are 4 digits exactly.
+		// See golang.org/issue/4556#c15 for more discussion.
+		return nil, errors.New("Time.MarshalJSON: year outside of range [0,9999]")
+	}
+
+	formatISO8601 := "2006-01-02T15:04:05Z"
+	b := make([]byte, 0, len(formatISO8601)+2)
+	b = append(b, '"')
+	b = time.Time(t).AppendFormat(b, formatISO8601)
+	b = append(b, '"')
+	return b, nil
+}
+
 // Customer is a customer object, as defined by Help Scout
 // The use of pointers for everything here is important
 // so that we can omit some values instead of sending blank strings
 type Customer struct {
-	ID        *int       `json:"id"`
-	Email     *string    `json:"email"`
-	FirstName *string    `json:"firstName"`
-	LastName  *string    `json:"lastName"`
-	PhotoURL  *string    `json:"photoUrl"`
-	JobTitle  *string    `json:"jobTitle"`
-	PhotoType *string    `json:"photoType"`
-	Notes     *string    `json:"background"`
-	Location  *string    `json:"location"`
-	Created   *time.Time `json:"createdAt"`
-	Company   *string    `json:"organization"`
-	Gender    *string    `json:"gender"`
-	Age       *string    `json:"age"`
+	ID        int    `json:"id,omitempty"`
+	Email     string `json:"email,omitempty"`
+	FirstName string `json:"firstName,omitempty"`
+	LastName  string `json:"lastName,omitempty"`
+	PhotoURL  string `json:"photoUrl,omitempty"`
+	JobTitle  string `json:"jobTitle,omitempty"`
+	PhotoType string `json:"photoType,omitempty"`
+	Notes     string `json:"background,omitempty"`
+	Location  string `json:"location,omitempty"`
+	Created   Time   `json:"createdAt,omitempty"`
+	Company   string `json:"organization,omitempty"`
+	Gender    string `json:"gender,omitempty"`
+	Age       string `json:"age,omitempty"`
 }
 
 type reqConversation struct {
@@ -47,11 +67,11 @@ type reqConversation struct {
 	MailboxID int         `json:"mailboxId"`
 	Type      string      `json:"type"`
 	Status    string      `json:"status"`
-	Created   time.Time   `json:"createdAt"`
+	Created   Time        `json:"createdAt"`
 	Threads   []NewThread `json:"threads"`
 	Imported  bool        `json:"imported"`
 	Tags      []string    `json:"tags"`
-	Closed    time.Time   `json:"closedAt"`
+	Closed    Time        `json:"closedAt"`
 }
 
 // NewConversationWithMessage creates a new message thread from the
@@ -72,7 +92,7 @@ func (h *HelpScout) NewConversationWithThread(threadType string, subject string,
 		Customer: customer,
 		Content:  content,
 		Imported: true,
-		Created:  created,
+		Created:  Time(created.UTC()),
 	}})
 	if err != nil {
 		return
@@ -94,17 +114,18 @@ func (h *HelpScout) NewConversation(subject string, customer Customer, created t
 		return 0, fmt.Errorf("subjects cannot be blank")
 	}
 
+	customer.Created = Time(created)
 	_, header, err := h.Exec("conversations", &reqConversation{
 		Subject:   subject,
 		Customer:  customer,
 		MailboxID: h.MailboxID,
 		Type:      "email",
 		Status:    "closed",
-		Created:   created,
+		Created:   Time(created.UTC()),
 		Threads:   threads,
 		Imported:  true,
 		Tags:      tags,
-		Closed:    created,
+		Closed:    Time(created.UTC()),
 	}, nil)
 	if err != nil {
 		return
