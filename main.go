@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/StirlingMarketingGroup/go-retry"
+	retry "github.com/StirlingMarketingGroup/go-retry"
 
 	. "github.com/logrusorgru/aurora"
 )
@@ -32,6 +32,9 @@ var ShowPostData = true
 
 // ShowResponse being set to false will hide any Help Scout responses in verbose mode
 var ShowResponse = true
+
+// RateLimitPercent is the percent (as a decimal) of how much of the available rate limit to use. E.g., rate limit is 400/minute; if .75 is given, then 300/minute will be this instances effective rate limit
+var RateLimitPercent float64 = 1
 
 // CurrentRateMinute is the current count of API requests in the last minute
 // var currentRateMinute = 0
@@ -198,7 +201,7 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 		if currentRateMinuteCh == nil {
 			if rate, ok := resp.Header["X-Ratelimit-Limit-Minute"]; ok {
 				n, _ := strconv.Atoi(rate[0])
-				currentRateMinuteCh = make(chan struct{}, n)
+				currentRateMinuteCh = make(chan struct{}, int(float64(n)*RateLimitPercent))
 
 				if Verbose {
 					log(h.ConnNum, fmt.Sprintf("Current rate limit is %d", n))
