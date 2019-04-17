@@ -212,13 +212,11 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 					used := n - r
 					for i := 0; i < used; i++ {
 						currentRateMinuteCh <- struct{}{}
-					}
-					go func() {
-						time.Sleep(time.Minute)
-						for i := 0; i < used; i++ {
+						go func() {
+							time.Sleep(time.Minute)
 							<-currentRateMinuteCh
-						}
-					}()
+						}()
+					}
 				}
 			}
 		}
