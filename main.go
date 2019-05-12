@@ -50,8 +50,16 @@ type HelpScout struct {
 	MailboxID       int
 	MailboxSelected bool
 	ConnNum         int
-	accessTokenMtx  sync.Mutex
+	accessTokenMtx  sync.RWMutex
 	reqMtx          sync.Mutex
+}
+
+// ReadAccessToken safely returns the access token in a async-safe way
+func (h *HelpScout) ReadAccessToken() string {
+	h.accessTokenMtx.RLock()
+	accessToken := h.AccessToken
+	h.accessTokenMtx.RUnlock()
+	return accessToken
 }
 
 var nextConnNum = 0
@@ -74,7 +82,7 @@ func New(appID string, appSecret string) (h *HelpScout, err error) {
 		ConnNum:     connNum,
 	}
 
-	err = h.GetAccessToken()
+	err = h.GetNewAccessToken()
 	if err != nil {
 		return nil, err
 	}
@@ -88,9 +96,9 @@ type respToken struct {
 	ExpiresIn   int    `json:"expires_in"`
 }
 
-// GetAccessToken gets an access token for the Help Scout API
-func (h *HelpScout) GetAccessToken() (err error) {
-	accessToken := h.AccessToken
+// GetNewAccessToken gets an access token for the Help Scout API
+func (h *HelpScout) GetNewAccessToken() (err error) {
+	accessToken := h.ReadAccessToken()
 
 	h.accessTokenMtx.Lock()
 	if accessToken == h.AccessToken {
@@ -98,7 +106,7 @@ func (h *HelpScout) GetAccessToken() (err error) {
 			"client_id":     {h.AppID},
 			"client_secret": {h.AppSecret},
 			"grant_type":    {"client_credentials"},
-		}, &respToken{}, false)
+		}, &respToken{}, false, true)
 		if err != nil {
 			return err
 		}
@@ -120,9 +128,11 @@ func (h *HelpScout) GetAccessToken() (err error) {
 
 // RawExec sends a request to the given URL with the given params to the
 // Help Scout API and returns its response
-func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimited bool) (r interface{}, statusCode int, header http.Header, err error) {
+func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimited bool, mutexLocked bool) (r interface{}, statusCode int, header http.Header, err error) {
 	u = "https://api.helpscout.net/v2/" + u
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: time.Minute,
+	}
 
 	var body []byte
 	var _req *http.Request
@@ -159,8 +169,14 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 			return
 		}
 
-		if len(h.AccessToken) != 0 {
-			req.Header.Add("Authorization", "Bearer "+h.AccessToken)
+		var accessToken string
+		if mutexLocked {
+			accessToken = h.AccessToken
+		} else {
+			accessToken = h.ReadAccessToken()
+		}
+		if len(accessToken) != 0 {
+			req.Header.Add("Authorization", "Bearer "+accessToken)
 		}
 
 		if Verbose {
@@ -231,6 +247,15 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 		}
 		statusCode = resp.StatusCode
 
+		if statusCode == 401 {
+			err = h.GetNewAccessToken()
+			if err != nil {
+				return
+			}
+			err = &retry.NoFail{Err: fmt.Errorf("received new access token")}
+			return
+		}
+
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return fmt.Errorf("received status code %d", resp.StatusCode)
 		}
@@ -274,24 +299,17 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 
 // Exec wraps the RaWExec function for common requests
 func (h *HelpScout) Exec(u string, v interface{}, dest interface{}) (r interface{}, header http.Header, err error) {
-	if len(h.AccessToken) == 0 {
-		err = h.GetAccessToken()
+	if len(h.ReadAccessToken()) == 0 {
+		err = h.GetNewAccessToken()
 		if err != nil {
 			return
 		}
 	}
 
-	r, statusCode, header, err := h.RawExec(u, v, dest, true)
+	r, _, header, err = h.RawExec(u, v, dest, true, false)
 	if err != nil {
-		if statusCode == 401 {
-			err = h.GetAccessToken()
-			if err != nil {
-				return
-			}
-			r, _, header, err = h.RawExec(u, v, dest, true)
-		}
+		return nil, nil, err
 	}
-
 	return
 }
 
