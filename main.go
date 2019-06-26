@@ -197,15 +197,11 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 
 			for i := 0; i < payloadRequests; i++ {
 				currentRateMinuteCh <- struct{}{}
-			}
-			defer func() {
 				go func() {
 					time.Sleep(time.Minute)
-					for i := 0; i < payloadRequests; i++ {
-						<-currentRateMinuteCh
-					}
+					<-currentRateMinuteCh
 				}()
-			}()
+			}
 		}
 
 		resp, err := client.Do(req)
