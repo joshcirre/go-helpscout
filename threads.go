@@ -119,7 +119,7 @@ type respThreads struct {
 
 // GetThreads returns a slice of Threads
 func (h *HelpScout) GetThreads(conversationID int) (threads []Thread, err error) {
-	r, _, err := h.Exec(
+	r, _, _, err := h.Exec(
 		"conversations/"+strconv.Itoa(conversationID)+"/threads",
 		nil,
 		&respThreads{},

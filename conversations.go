@@ -55,7 +55,7 @@ type Customer struct {
 	PhotoType string `json:"photoType,omitempty"`
 	Notes     string `json:"background,omitempty"`
 	Location  string `json:"location,omitempty"`
-	Created   Time   `json:"createdAt,omitempty"`
+	Created   *Time  `json:"createdAt,omitempty"`
 	Company   string `json:"organization,omitempty"`
 	Gender    string `json:"gender,omitempty"`
 	Age       string `json:"age,omitempty"`
@@ -67,27 +67,27 @@ type reqConversation struct {
 	MailboxID int         `json:"mailboxId"`
 	Type      string      `json:"type"`
 	Status    string      `json:"status"`
-	Created   Time        `json:"createdAt"`
+	Created   *Time       `json:"createdAt"`
 	Threads   []NewThread `json:"threads"`
 	Imported  bool        `json:"imported"`
 	Tags      []string    `json:"tags"`
-	Closed    Time        `json:"closedAt"`
+	Closed    *Time       `json:"closedAt"`
 }
 
 // NewConversationWithMessage creates a new message thread from the
 // given customer in the current mailbox
-func (h *HelpScout) NewConversationWithMessage(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, err error) {
+func (h *HelpScout) NewConversationWithMessage(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, resp []byte, err error) {
 	return h.NewConversationWithThread("customer", subject, customer, created, tags, content, searchForThreadID, closed)
 }
 
 // NewConversationWithReply creates a reply thread to the given customer
-func (h *HelpScout) NewConversationWithReply(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, err error) {
+func (h *HelpScout) NewConversationWithReply(subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, resp []byte, err error) {
 	return h.NewConversationWithThread("reply", subject, customer, created, tags, content, searchForThreadID, closed)
 }
 
 // NewConversationWithThread creates a conversation and a thread with the given customer information
-func (h *HelpScout) NewConversationWithThread(threadType string, subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, err error) {
-	conversationID, err = h.NewConversation(subject, customer, created, tags, []NewThread{{
+func (h *HelpScout) NewConversationWithThread(threadType string, subject string, customer Customer, created time.Time, tags []string, content string, searchForThreadID bool, closed bool) (conversationID int, threadID int, resp []byte, err error) {
+	conversationID, resp, err = h.NewConversation(subject, customer, created, tags, []NewThread{{
 		Type:     threadType,
 		Customer: customer,
 		Content:  content,
@@ -109,9 +109,9 @@ func (h *HelpScout) NewConversationWithThread(threadType string, subject string,
 }
 
 // NewConversation creates a new conversation with the given customer and returns the new Conversation ID
-func (h *HelpScout) NewConversation(subject string, customer Customer, created time.Time, tags []string, threads []NewThread, closed bool) (conversationID int, err error) {
+func (h *HelpScout) NewConversation(subject string, customer Customer, created time.Time, tags []string, threads []NewThread, closed bool) (conversationID int, resp []byte, err error) {
 	if len(subject) == 0 {
-		return 0, fmt.Errorf("subjects cannot be blank")
+		return 0, nil, fmt.Errorf("subjects cannot be blank")
 	}
 
 	var status string
@@ -121,18 +121,28 @@ func (h *HelpScout) NewConversation(subject string, customer Customer, created t
 		status = "active"
 	}
 
-	customer.Created = Time(created)
-	_, header, err := h.Exec("conversations", &reqConversation{
+	closedTime := new(Time)
+	if closed {
+		*closedTime = Time(created.UTC())
+	} else {
+		closedTime = nil
+	}
+
+	createdTime := new(Time)
+	*createdTime = Time(created.UTC())
+
+	customer.Created = createdTime
+	_, header, resp, err := h.Exec("conversations", &reqConversation{
 		Subject:   subject,
 		Customer:  customer,
 		MailboxID: h.MailboxID,
 		Type:      "email",
 		Status:    status,
-		Created:   Time(created.UTC()),
+		Created:   createdTime,
 		Threads:   threads,
 		Imported:  true,
 		Tags:      tags,
-		Closed:    Time(created.UTC()),
+		Closed:    closedTime,
 	}, nil)
 	if err != nil {
 		return

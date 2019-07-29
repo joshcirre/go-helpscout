@@ -102,7 +102,7 @@ func (h *HelpScout) GetNewAccessToken() (err error) {
 
 	h.accessTokenMtx.Lock()
 	if accessToken == h.AccessToken {
-		r, _, _, err := h.RawExec("oauth2/token", url.Values{
+		r, _, _, _, err := h.RawExec("oauth2/token", url.Values{
 			"client_id":     {h.AppID},
 			"client_secret": {h.AppSecret},
 			"grant_type":    {"client_credentials"},
@@ -128,7 +128,7 @@ func (h *HelpScout) GetNewAccessToken() (err error) {
 
 // RawExec sends a request to the given URL with the given params to the
 // Help Scout API and returns its response
-func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimited bool, mutexLocked bool) (r interface{}, statusCode int, header http.Header, err error) {
+func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimited bool, mutexLocked bool) (r interface{}, statusCode int, header http.Header, resp []byte, err error) {
 	u = "https://api.helpscout.net/v2/" + u
 	client := &http.Client{
 		Timeout: time.Minute,
@@ -209,7 +209,7 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 		if err != nil {
 			return fmt.Errorf("helpscout rawexec: %s", err)
 		}
-		defer resp.Body.Close()
+		// defer resp.Body.Close()
 		if currentRateMinuteCh == nil {
 			if rate, ok := resp.Header["X-Ratelimit-Limit-Minute"]; ok {
 				n, _ := strconv.Atoi(rate[0])
@@ -290,11 +290,16 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 		}
 	}
 
-	return dest, statusCode, header, nil
+	resp, err = ioutil.ReadAll(_resp.Body)
+	if err != nil {
+		return
+	}
+	_resp.Body.Close()
+	return dest, statusCode, header, resp, nil
 }
 
 // Exec wraps the RaWExec function for common requests
-func (h *HelpScout) Exec(u string, v interface{}, dest interface{}) (r interface{}, header http.Header, err error) {
+func (h *HelpScout) Exec(u string, v interface{}, dest interface{}) (r interface{}, header http.Header, resp []byte, err error) {
 	if len(h.ReadAccessToken()) == 0 {
 		err = h.GetNewAccessToken()
 		if err != nil {
@@ -302,9 +307,9 @@ func (h *HelpScout) Exec(u string, v interface{}, dest interface{}) (r interface
 		}
 	}
 
-	r, _, header, err = h.RawExec(u, v, dest, true, false)
+	r, _, header, resp, err = h.RawExec(u, v, dest, true, false)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, resp, err
 	}
 	return
 }
