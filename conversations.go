@@ -3,6 +3,7 @@ package helpscout
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -145,11 +146,144 @@ func (h *HelpScout) NewConversation(subject string, customer Customer, created t
 		Tags:      tags,
 		Closed:    closedTime,
 		User:      user,
-	}, nil)
+	}, nil, "")
 	if err != nil {
 		return
 	}
 
 	conversationID, _ = strconv.Atoi(header.Get("Resource-ID"))
 	return
+}
+
+// RsListConversations is a list conversations response
+type RsListConversations struct {
+	Embedded struct {
+		Conversations []Conversation `json:"conversations"`
+	} `json:"_embedded"`
+	Links struct {
+		First struct {
+			Href string `json:"href"`
+		} `json:"first"`
+		Last struct {
+			Href string `json:"href"`
+		} `json:"last"`
+		Next struct {
+			Href string `json:"href"`
+		} `json:"next"`
+		Page struct {
+			Href string `json:"href"`
+		} `json:"page"`
+		Self struct {
+			Href string `json:"href"`
+		} `json:"self"`
+	} `json:"_links"`
+	Page struct {
+		Size          int `json:"size"`
+		TotalElements int `json:"totalElements"`
+		TotalPages    int `json:"totalPages"`
+		Number        int `json:"number"`
+	} `json:"page"`
+}
+
+// Conversation is a Help Scout conversation
+type Conversation struct {
+	ID        int    `json:"id"`
+	Number    int    `json:"number"`
+	Threads   int    `json:"threads"`
+	Type      string `json:"type"`
+	FolderID  int    `json:"folderId"`
+	Status    string `json:"status"`
+	State     string `json:"state"`
+	Subject   string `json:"subject"`
+	Preview   string `json:"preview"`
+	MailboxID int    `json:"mailboxId"`
+	CreatedBy struct {
+		ID       int    `json:"id"`
+		Type     string `json:"type"`
+		First    string `json:"first"`
+		Last     string `json:"last"`
+		PhotoURL string `json:"photoUrl"`
+		Email    string `json:"email"`
+	} `json:"createdBy,omitempty"`
+	CreatedAt            time.Time `json:"createdAt"`
+	ClosedBy             int       `json:"closedBy"`
+	UserUpdatedAt        time.Time `json:"userUpdatedAt"`
+	CustomerWaitingSince struct {
+		Time     time.Time `json:"time"`
+		Friendly string    `json:"friendly"`
+	} `json:"customerWaitingSince"`
+	Source struct {
+		Type string `json:"type"`
+		Via  string `json:"via"`
+	} `json:"source"`
+	Tags            []interface{} `json:"tags"`
+	Cc              []interface{} `json:"cc"`
+	Bcc             []interface{} `json:"bcc"`
+	PrimaryCustomer struct {
+		ID       int    `json:"id"`
+		Type     string `json:"type"`
+		First    string `json:"first"`
+		Last     string `json:"last"`
+		PhotoURL string `json:"photoUrl"`
+		Email    string `json:"email"`
+	} `json:"primaryCustomer"`
+	CustomFields []interface{} `json:"customFields"`
+	Links        struct {
+		ClosedBy struct {
+			Href string `json:"href"`
+		} `json:"closedBy"`
+		CreatedByCustomer struct {
+			Href string `json:"href"`
+		} `json:"createdByCustomer"`
+		Mailbox struct {
+			Href string `json:"href"`
+		} `json:"mailbox"`
+		PrimaryCustomer struct {
+			Href string `json:"href"`
+		} `json:"primaryCustomer"`
+		Self struct {
+			Href string `json:"href"`
+		} `json:"self"`
+		Threads struct {
+			Href string `json:"href"`
+		} `json:"threads"`
+		Web struct {
+			Href string `json:"href"`
+		} `json:"web"`
+	} `json:"_links,omitempty"`
+	ClosedAt time.Time `json:"closedAt,omitempty"`
+}
+
+// ListConversations takes a Help Scout query and returns all
+// conversations on every page for that search
+// https://developer.helpscout.com/mailbox-api/endpoints/conversations/list/
+func (h *HelpScout) ListConversations(query string) (conversations []Conversation, err error) {
+	var rs RsListConversations
+	page := 1
+	if len(query) != 0 {
+		query = "&query=" + url.QueryEscape(query)
+	}
+
+	for {
+		_, _, _, err = h.Exec("conversations?status=all&mailbox="+strconv.Itoa(h.MailboxID)+"&page="+strconv.Itoa(page)+query, nil, &rs, "")
+		if err != nil {
+			return nil, err
+		}
+		if page == 1 {
+			conversations = make([]Conversation, 0, rs.Page.TotalElements)
+		}
+		conversations = append(conversations, rs.Embedded.Conversations...)
+
+		if page == rs.Page.TotalPages {
+			break
+		}
+		page++
+	}
+
+	return
+}
+
+// ListConversationsByEmail returns all conversations for the given email
+func (h *HelpScout) ListConversationsByEmail(email string) (conversations []Conversation, err error) {
+	return h.ListConversations(`(email:"` + email + `")`)
 }

@@ -106,7 +106,7 @@ func (h *HelpScout) GetNewAccessToken() (err error) {
 			"client_id":     {h.AppID},
 			"client_secret": {h.AppSecret},
 			"grant_type":    {"client_credentials"},
-		}, &respToken{}, false, true)
+		}, &respToken{}, "POST", false, true)
 		if err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func (h *HelpScout) GetNewAccessToken() (err error) {
 
 // RawExec sends a request to the given URL with the given params to the
 // Help Scout API and returns its response
-func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimited bool, mutexLocked bool) (r interface{}, statusCode int, header http.Header, resp []byte, err error) {
+func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, method string, rateLimited bool, mutexLocked bool) (r interface{}, statusCode int, header http.Header, resp []byte, err error) {
 	u = "https://api.helpscout.net/v2/" + u
 	client := &http.Client{
 		Timeout: time.Minute,
@@ -143,14 +143,20 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 		_req = req
 		var params string
 		if v == nil {
-			req, err = http.NewRequest("GET", u, nil)
+			if len(method) == 0 {
+				method = "GET"
+			}
+			req, err = http.NewRequest(method, u, nil)
 		} else {
+			if len(method) == 0 {
+				method = "POST"
+			}
 			switch v.(type) {
 			case url.Values:
 				if Verbose {
 					params = v.(url.Values).Encode()
 				}
-				req, err = http.NewRequest("POST", u, strings.NewReader(v.(url.Values).Encode()))
+				req, err = http.NewRequest(method, u, strings.NewReader(v.(url.Values).Encode()))
 				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			default:
 				var j []byte
@@ -161,7 +167,7 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 				if Verbose {
 					params = string(j)
 				}
-				req, err = http.NewRequest("POST", u, bytes.NewBuffer(j))
+				req, err = http.NewRequest(method, u, bytes.NewBuffer(j))
 				req.Header.Add("Content-Type", "application/json")
 			}
 		}
@@ -299,7 +305,7 @@ func (h *HelpScout) RawExec(u string, v interface{}, dest interface{}, rateLimit
 }
 
 // Exec wraps the RaWExec function for common requests
-func (h *HelpScout) Exec(u string, v interface{}, dest interface{}) (r interface{}, header http.Header, resp []byte, err error) {
+func (h *HelpScout) Exec(u string, v interface{}, dest interface{}, method string) (r interface{}, header http.Header, resp []byte, err error) {
 	if len(h.ReadAccessToken()) == 0 {
 		err = h.GetNewAccessToken()
 		if err != nil {
@@ -307,7 +313,7 @@ func (h *HelpScout) Exec(u string, v interface{}, dest interface{}) (r interface
 		}
 	}
 
-	r, _, header, resp, err = h.RawExec(u, v, dest, true, false)
+	r, _, header, resp, err = h.RawExec(u, v, dest, method, true, false)
 	if err != nil {
 		return nil, nil, resp, err
 	}

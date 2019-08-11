@@ -18,6 +18,7 @@ func (h *HelpScout) UploadAttachment(conversationID int, threadID int, name stri
 			Data:     data,
 		},
 		nil,
+		"",
 	)
 	return
 }

@@ -123,6 +123,7 @@ func (h *HelpScout) GetThreads(conversationID int) (threads []Thread, err error)
 		"conversations/"+strconv.Itoa(conversationID)+"/threads",
 		nil,
 		&respThreads{},
+		"",
 	)
 	if err != nil {
 		return

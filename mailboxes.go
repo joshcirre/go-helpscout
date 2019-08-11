@@ -65,7 +65,7 @@ func (h *HelpScout) DeselectMailbox() {
 // SelectMailbox searches for a mailbox ID with the given ID,
 // mailbox name, or email address and selects it
 func (h *HelpScout) SelectMailbox(mailbox interface{}) error {
-	r, _, _, err := h.Exec("mailboxes", nil, &respMailboxes{})
+	r, _, _, err := h.Exec("mailboxes", nil, &respMailboxes{}, "")
 	if err != nil {
 		return err
 	}
