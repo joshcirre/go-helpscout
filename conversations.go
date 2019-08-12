@@ -274,7 +274,7 @@ func (h *HelpScout) ListConversations(query string) (conversations []Conversatio
 		}
 		conversations = append(conversations, rs.Embedded.Conversations...)
 
-		if page == rs.Page.TotalPages {
+		if page >= rs.Page.TotalPages {
 			break
 		}
 		page++
