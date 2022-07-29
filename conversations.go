@@ -104,7 +104,7 @@ func (h *HelpScout) NewConversationWithThread(threadType string, subject string,
 	// unlike getting the conversation ID, which is returned with the conversation
 	// creation request
 	if searchForThreadID {
-		threadID, err = h.GetEarliestThreadID(conversationID)
+		threadID, err = h.GetLatestThreadID(conversationID)
 	}
 
 	return
